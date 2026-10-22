@@ -1,0 +1,13 @@
+name: Source checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash -n *.sh packaging/*.sh tests/*.sh
+      - run: bash tests/test-presets.sh
+      - run: python3 -m py_compile tools/diagnose.py
+      - run: bash build-app.sh

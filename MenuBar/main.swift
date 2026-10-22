@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import Foundation
+import Darwin
 
 @MainActor
 final class PocketPlayApp: NSObject, NSApplicationDelegate {
@@ -11,6 +12,7 @@ final class PocketPlayApp: NSObject, NSApplicationDelegate {
     private let stopItem = NSMenuItem(title: "关闭模拟器（保存快照）", action: #selector(stop), keyEquivalent: "")
     private var timer: Timer?
     private var busy = false
+    private var refreshing = false
     private var emulatorProcess: Process?
 
     private var script: String {
@@ -33,7 +35,7 @@ final class PocketPlayApp: NSObject, NSApplicationDelegate {
         menu.addItem(showItem)
         menu.addItem(stopItem)
         let sizeMenu = NSMenu()
-        for (title, value) in [("手机 · 1080×2400", "phone"), ("平板 · 横向 2560×1600", "tablet"), ("宽屏 · 1920×1080", "wide"), ("恢复原始尺寸", "reset")] {
+        for (title, value) in [("流畅手机 · 720×1600（低负载）", "smooth"), ("手机 · 1080×2400", "phone"), ("平板 · 横向 2560×1600", "tablet"), ("宽屏 · 1920×1080", "wide"), ("恢复原始尺寸", "reset")] {
             let item = NSMenuItem(title: title, action: #selector(changeSize(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = value
@@ -69,15 +71,34 @@ final class PocketPlayApp: NSObject, NSApplicationDelegate {
             env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
             if argument != nil { env["POCKET_PLAY_APP_MANAGED"] = "1" }
             task.environment = env
-            let pipe = Pipe()
-            task.standardOutput = pipe
-            task.standardError = pipe
+            // A private file avoids pipe EOF hangs from inherited ADB daemon handles
+            // and bounds RAM use during a multi-GB SDK installation.
+            let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            FileManager.default.createFile(atPath: outputURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
+            defer { try? FileManager.default.removeItem(at: outputURL) }
             do {
+                let outputHandle = try FileHandle(forUpdating: outputURL)
+                defer { try? outputHandle.close() }
+                task.standardInput = FileHandle.nullDevice
+                task.standardOutput = outputHandle
+                task.standardError = outputHandle
                 try task.run()
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                let limit: TimeInterval = command == "setup" ? 3600 : (command == "status" ? 12 : 240)
+                let deadline = Date().addingTimeInterval(limit)
+                while task.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.1) }
+                let timedOut = task.isRunning
+                if timedOut {
+                    task.terminate()
+                    Thread.sleep(forTimeInterval: 0.3)
+                    if task.isRunning { Darwin.kill(task.processIdentifier, SIGKILL) }
+                }
                 task.waitUntilExit()
-                let output = String(decoding: data, as: UTF8.self)
-                Task { @MainActor in completion(task.terminationStatus, output) }
+                let size = try outputHandle.seekToEnd()
+                try outputHandle.seek(toOffset: size > 65536 ? size - 65536 : 0)
+                let data = outputHandle.readDataToEndOfFile()
+                let output = String(decoding: data, as: UTF8.self) + (timedOut ? "\n操作超时，请检查 ADB / 模拟器状态。" : "")
+                let code: Int32 = timedOut ? 124 : task.terminationStatus
+                Task { @MainActor in completion(code, output) }
             } catch {
                 Task { @MainActor in completion(1, error.localizedDescription) }
             }
@@ -85,9 +106,17 @@ final class PocketPlayApp: NSObject, NSApplicationDelegate {
     }
 
     private func refresh() {
-        guard !busy else { return }
-        run("status") { [weak self] _, output in
+        guard !busy, !refreshing else { return }
+        refreshing = true
+        run("status") { [weak self] code, output in
             guard let self else { return }
+            self.refreshing = false
+            // An older refresh must not overwrite a newer operation's UI.
+            guard !self.busy else { return }
+            guard code == 0 else {
+                self.statusLine.title = "状态检查失败 · 请查看日志"
+                return
+            }
             let running = output.contains("Device: ") || output.contains("process running") || output.contains("booting")
             self.statusLine.title = output.contains("boot: complete") ? "Android 已就绪 · Google Play" :
                 running ? "Android 启动中…" : "Android 已关闭"

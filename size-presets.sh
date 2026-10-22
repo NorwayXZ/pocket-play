@@ -8,11 +8,12 @@ ADB="$SDK/platform-tools/adb"
 AVD="${POCKET_PLAY_AVD:-PocketPlay_API35}"
 CONFIG="${ANDROID_AVD_HOME:-$HOME/.android/avd}/$AVD.avd/config.ini"
 
-usage() { echo "Usage: $0 {phone|tablet|wide|reset|status}" >&2; exit 2; }
+usage() { echo "Usage: $0 {smooth|phone|tablet|wide|reset|status}" >&2; exit 2; }
 [[ -x "$ADB" ]] || { echo "Missing ADB: $ADB" >&2; exit 1; }
 [[ -f "$CONFIG" ]] || { echo "Missing AVD: $CONFIG" >&2; exit 1; }
 
 case "${1:-}" in
+  smooth) width=720; height=1600; density=280; label=smooth ;;
   phone|reset) width=1080; height=2400; density=420; label=phone ;;
   tablet) width=2560; height=1600; density=320; label=tablet ;;
   wide) width=1920; height=1080; density=240; label=wide ;;

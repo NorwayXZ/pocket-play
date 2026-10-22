@@ -152,3 +152,12 @@ runtime retain their upstream licenses (included in runtime directories); Androi
 SDK licenses must be accepted separately. Build inputs are fetched from official
 metadata and verified against upstream checksums; `latest` can change between
 builds, so these builds are not bit-for-bit reproducible.
+
+## Bug investigation / performance
+
+The menu now includes **流畅手机 · 720×1600（低负载）**, preserving the phone
+aspect ratio at lower pixel load. It restarts Android without clearing userdata.
+This is an opt-in performance mode, not a guarantee of 60 FPS or third-party app
+compatibility. See [investigation status](docs/BUGS.md) and
+[pinned GitHub source references](docs/REFERENCES.md). Xianyu session loss is
+currently unresolved; do not treat the preview release as production-ready.
