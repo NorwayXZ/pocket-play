@@ -58,7 +58,8 @@ final class PocketPlayApp: NSObject, NSApplicationDelegate {
 
 
     private func run(_ command: String, argument: String? = nil, completion: @escaping @MainActor (Int32, String) -> Void) {
-        let path = argument == nil ? script : Bundle.main.resourceURL!.appendingPathComponent("size-presets.sh").path
+        let path = command == "setup" ? Bundle.main.resourceURL!.appendingPathComponent("setup-runtime.sh").path :
+            (argument == nil ? script : Bundle.main.resourceURL!.appendingPathComponent("size-presets.sh").path)
         let args = argument.map { [$0] } ?? [command]
         DispatchQueue.global(qos: .userInitiated).async {
             let task = Process()
@@ -111,6 +112,24 @@ final class PocketPlayApp: NSObject, NSApplicationDelegate {
 
     private func launchEmulator() {
         guard !busy else { return }
+        let sdk = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Android/sdk")
+        let config = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".android/avd/PocketPlay_API35.avd/config.ini")
+        if !FileManager.default.fileExists(atPath: sdk.appendingPathComponent("emulator/emulator").path) || !FileManager.default.fileExists(atPath: config.path) {
+            let prompt = NSAlert()
+            prompt.messageText = "首次安装 Android 环境"
+            prompt.informativeText = "将从 Google 下载官方 Android 15 / Google Play 镜像（数 GB），需要网络及至少 15 GB 可用空间。继续表示同意 Android SDK 许可。下载期间请勿退出。许可：https://developer.android.com/studio/terms"
+            prompt.addButton(withTitle: "同意并安装")
+            prompt.addButton(withTitle: "取消")
+            guard prompt.runModal() == .alertFirstButtonReturn else { return }
+            busy = true
+            statusLine.title = "正在下载 Android 环境…"
+            run("setup") { code, output in
+                self.busy = false
+                if code == 0 { self.launchEmulator() }
+                else { self.alert("Android 安装失败", output); self.refresh() }
+            }
+            return
+        }
         // macOS grants camera access to the app process, not the Android guest.
         // Start the emulator only after TCC has resolved the app's permission;
         // otherwise its webcam session can remain black until a full restart.

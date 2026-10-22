@@ -47,34 +47,14 @@ if "$LAUNCHER" status | grep -E '^Device:|^Emulator process running'; then
 fi
 
 # Preserve other device settings and write the three keys in one replacement.
-python3 - "$CONFIG" "$width" "$height" "$density" <<'PY'
-from pathlib import Path
-import os, sys, tempfile
-path = Path(sys.argv[1])
-values = {'hw.lcd.width': sys.argv[2], 'hw.lcd.height': sys.argv[3], 'hw.lcd.density': sys.argv[4]}
-lines = path.read_text().splitlines()
-seen = set()
-result = []
-for line in lines:
-    key = line.partition('=')[0]
-    if key in values:
-        if key not in seen:
-            result.append(f'{key}={values[key]}')
-            seen.add(key)
-    else:
-        result.append(line)
-for key in values.keys() - seen:
-    result.append(f'{key}={values[key]}')
-fd, name = tempfile.mkstemp(prefix='.config-', dir=path.parent)
-try:
-    with os.fdopen(fd, 'w') as f:
-        f.write('\n'.join(result) + '\n')
-    os.chmod(name, path.stat().st_mode)
-    os.replace(name, path)
-except:
-    os.unlink(name)
-    raise
-PY
+temp="$(mktemp "${CONFIG}.XXXXXX")"
+trap '[[ ! -f "$temp" ]] || unlink "$temp"' EXIT
+awk -v w="$width" -v h="$height" -v d="$density" '
+  !/^hw\.lcd\.(width|height|density)=/ {print}
+  END {print "hw.lcd.width=" w; print "hw.lcd.height=" h; print "hw.lcd.density=" d}
+' "$CONFIG" > "$temp"
+chmod 600 "$temp"
+mv "$temp" "$CONFIG"
 
 if ((was_running)); then
   if [[ "${POCKET_PLAY_APP_MANAGED:-0}" == 1 ]]; then

@@ -100,3 +100,55 @@ Inspired by [MiniSim](https://github.com/okwasniewski/MiniSim), [Simulators](htt
 ## License
 
 [MIT](LICENSE)
+
+## Download installers (v0.3.0 Preview)
+
+Download from **[GitHub Releases](https://github.com/NorwayXZ/pocket-play/releases/latest)**
+(or [all releases](https://github.com/NorwayXZ/pocket-play/releases) for Preview builds).
+
+| Platform | Download |
+|---|---|
+| macOS 13+ Apple Silicon | `PocketPlay-macOS-arm64.dmg` |
+| macOS 13+ Intel | `PocketPlay-macOS-x86_64.dmg` |
+| Windows 10/11 x64 (Intel/AMD) | `PocketPlay-Windows-x64-Setup.exe` |
+
+Mac: open the DMG, drag Pocket Play to Applications, then launch it and use the
+menu-bar **启动模拟器** item. Windows: run Setup, then right-click the Pocket Play
+tray icon → **启动 / 安装 Android**. The installers include a Temurin Java 17 JRE
+and Google's command-line tools. **Homebrew, Java installation, Python, and a
+compiler are not needed by end users.** First run asks for Android SDK license
+consent before downloading the emulator and multi-GB Play Store image. Allow
+at least 15 GB free disk space and access to Google's download servers. SDK
+packages and user accounts are not bundled in the installer.
+
+Windows requires hardware virtualization enabled in BIOS/UEFI and **Windows
+Hypervisor Platform** enabled in Windows Features, followed by a reboot.
+Windows ARM is not supported. The Windows app currently reserves emulator port
+5554; close other Android emulators before launching it. On Windows, use
+**隐藏到托盘** to hide the window; the native window close action is disabled to
+prevent accidental shutdown (not yet the same close-to-hide behavior as Mac).
+
+These are **Preview builds**. macOS has only an ad-hoc signature (not Apple
+Developer ID signed or notarized), and Windows is not Authenticode signed;
+the OS may require an explicit approval to launch or block it under enterprise
+policy. No signing certificates are included. Apple Silicon camera/lifecycle
+was tested locally; Intel/Windows installers are compiled in CI but emulator,
+camera and GPU behavior still require tests on those physical platforms.
+Camera passthrough does not guarantee that any app's face verification accepts
+an emulator. Current Mac front camera uses `webcam0`; permission denial currently
+prevents startup until camera access is granted. Windows camera availability
+also depends on system camera permissions.
+
+### Release build
+
+Tag `v*` to trigger `.github/workflows/release.yml`. CI builds two Mac DMGs and a
+self-contained .NET 8 Windows installer, verifies downloaded runtime checksums,
+and publishes a GitHub prerelease with `SHA256SUMS.txt` only after every build
+succeeds. macOS packages are separate architectures rather than a universal VM:
+ARM hosts use the ARM64 Android image; Intel/Windows use the x86_64 image.
+
+The MIT license covers Pocket Play source. Bundled Google SDK tools and Temurin
+runtime retain their upstream licenses (included in runtime directories); Android
+SDK licenses must be accepted separately. Build inputs are fetched from official
+metadata and verified against upstream checksums; `latest` can change between
+builds, so these builds are not bit-for-bit reproducible.

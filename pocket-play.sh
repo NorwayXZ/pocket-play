@@ -3,7 +3,11 @@ set -euo pipefail
 
 # A lightweight launcher around the official Android Emulator + Google Play image.
 AVD_NAME="${POCKET_PLAY_AVD:-PocketPlay_API35}"
-IMAGE='system-images;android-35;google_apis_playstore;arm64-v8a'
+HOST_ARCH="$(uname -m)"
+ABI=arm64-v8a
+QEMU_ARCH=aarch64
+if [[ "$HOST_ARCH" == x86_64 ]]; then ABI=x86_64; QEMU_ARCH=x86_64; fi
+IMAGE="system-images;android-35;google_apis_playstore;$ABI"
 SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 AVD_HOME="${ANDROID_AVD_HOME:-$HOME/.android/avd}"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/pocket-play"
@@ -30,9 +34,9 @@ Usage: $(basename "$0") {install|start|stop|status|logs|help}
 USAGE
 }
 
-require_macos_arm() {
-  if [[ "$(uname -s)" != Darwin || "$(uname -m)" != arm64 ]]; then
-    echo 'This launcher targets Apple Silicon macOS. Use an image matching your host architecture.' >&2
+require_macos() {
+  if [[ "$(uname -s)" != Darwin ]]; then
+    echo 'This launcher requires macOS.' >&2
     exit 1
   fi
 }
@@ -74,7 +78,7 @@ remove_pixel_cutout() {
 
 is_running() {
   if launchctl print "$DOMAIN/$LABEL" 2>/dev/null | grep -q 'state = running'; then return 0; fi
-  pgrep -f "^$SDK/emulator/qemu/darwin-aarch64/qemu-system-aarch64 -avd $AVD_NAME( |$)" >/dev/null
+  pgrep -f "^$SDK/emulator/qemu/darwin-$QEMU_ARCH/qemu-system-$QEMU_ARCH -avd $AVD_NAME( |$)" >/dev/null
 }
 
 serial() {
@@ -91,7 +95,7 @@ serial() {
 }
 
 install_avd() {
-  require_macos_arm
+  require_macos
   local manager avd_manager config
   manager="$(sdkmanager_bin)"
   avd_manager="$(avdmanager_bin)"
@@ -127,7 +131,7 @@ install_avd() {
 }
 
 start_avd() {
-  require_macos_arm
+  require_macos
   local emulator
   emulator="$(emulator_bin)"
   [[ -x "$emulator" ]] || { echo "Emulator missing: $emulator — run '$0 install'" >&2; exit 1; }
