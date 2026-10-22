@@ -52,7 +52,7 @@ final class PocketPlayApp: NSObject, NSApplicationDelegate {
             self, selector: #selector(start), name: Notification.Name("local.pocketplay.start-emulator"), object: nil)
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+            Task { @MainActor [weak self] in self?.refresh() }
         }
     }
 
