@@ -1,0 +1,21 @@
+# Build artifacts
+build/
+*.app
+*.dylib
+
+# macOS
+.DS_Store
+._*
+
+# Logs
+*.log
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+
+# Android SDK & AVD (user-local)
+*.avd/
+*.img
